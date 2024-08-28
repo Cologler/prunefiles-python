@@ -6,6 +6,7 @@ authors = ["Cologler <skyoflw@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 scripts = { prunefiles = "prunefiles.app:main" }
+homepage = "https://github.com/Cologler/prunefiles-python"
 
 [tool.poetry.dependencies]
 python = "^3.12"
