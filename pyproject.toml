@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "prunefiles"
+version = "0.1.0"
+description = ""
+authors = ["Cologler <skyoflw@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+scripts = { prunefiles = "prunefiles.app:main" }
+
+[tool.poetry.dependencies]
+python = "^3.12"
+typer = {extras = ["all"], version = "^0.12.5"}
+parse = "^1.20.2"
+humanfriendly = "^10.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
