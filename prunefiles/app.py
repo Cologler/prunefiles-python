@@ -35,10 +35,10 @@ def prune_files(
             Path,
             typer.Argument(exists=True, file_okay=False, dir_okay=True, resolve_path=True),
         ],
-        match_format: Annotated[str, typer.Option(help="match format, see https://github.com/r1chardj0n3s/parse")] = None,
-        orderby: Annotated[str, typer.Option()] = None,
-        keep_count: Annotated[int, typer.Option()] = None,
-        keep_size: Annotated[str, typer.Option()] = None,
+        match_format: Annotated[str, typer.Option(help="match format, alsosee https://github.com/r1chardj0n3s/parse.")] = None,
+        orderby: Annotated[str, typer.Option(help='captured from --match-format. leave empty to sort by name.')] = None,
+        keep_count: Annotated[int, typer.Option(help='The count of files to keep.')] = None,
+        keep_size: Annotated[str, typer.Option(help='The max size of files to keep.')] = None,
         dry_run: Annotated[bool, typer.Option('--dry-run')] = False,
     ):
 
