@@ -67,6 +67,8 @@ def prune_files(
             help='match case sensitive, default is case-insensitive.')] = False,
 
         orderby: Annotated[str, typer.Option(help='captured from --match-format. leave empty to sort by name.')] = None,
+        orderby_reverse: Annotated[bool, typer.Option('--orderby-reverse', help='reverse order.')] = False,
+
         keep_count: Annotated[int, typer.Option(help='The count of files to keep.')] = None,
         keep_size: Annotated[str, typer.Option(help='The max size of files to keep.')] = None,
 
@@ -121,7 +123,7 @@ def prune_files(
     files = [x for x in files if x.is_match]
 
     # sort
-    files.sort(key=lambda x: x.orderby)
+    files.sort(key=lambda x: x.orderby, reverse=orderby_reverse)
 
     # prune
 
