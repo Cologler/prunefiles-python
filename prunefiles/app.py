@@ -53,6 +53,31 @@ class _PathState:
         return self.path.stat().st_size
 
 
+class CountLimiter:
+    def __init__(self, max_count: int, reason: str) -> None:
+        assert max_count > 0
+        self.__max_count = max_count
+        self.__reason = reason
+
+    def apply(self, files: list[_PathState]) -> bool:
+        for file in files[:-self.__max_count]:
+            file.prune_reasons.append(self.__reason)
+
+
+class SizeLimiter:
+    def __init__(self, max_size: int, reason: str) -> None:
+        assert max_size >= 0
+        self.__max_size = max_size # max size in bytes
+        self.__reason = reason
+
+    def apply(self, files: list[_PathState]) -> bool:
+        sum_of_size = 0
+        for file in reversed(files):
+            sum_of_size += file.size
+            if sum_of_size > self.__max_size:
+                file.prune_reasons.append(self.__reason)
+
+
 def prune_files(
         folder: Annotated[
             Path,
@@ -66,8 +91,8 @@ def prune_files(
         match_case_sensitive: Annotated[bool, typer.Option('--match-case-sensitive',
             help='match case sensitive, default is case-insensitive.')] = False,
 
-        orderby: Annotated[str, typer.Option(help='captured from --match-format. leave empty to sort by name.')] = None,
-        orderby_reverse: Annotated[bool, typer.Option('--orderby-reverse', help='reverse order.')] = False,
+        orderby: Annotated[str, typer.Option(help='captured from --match-*. leave empty to sort by name.')] = None,
+        order_reverse: Annotated[bool, typer.Option('--order-reverse', help='reverse order.')] = False,
 
         keep_count: Annotated[int, typer.Option(help='The count of files to keep.')] = None,
         keep_size: Annotated[str, typer.Option(help='The max size of files to keep.')] = None,
@@ -77,9 +102,14 @@ def prune_files(
 
     # check args
 
-    if keep_count is not None and keep_count <= 0:
-        rich.print('keep-count must be > 0')
-        raise typer.Exit(1)
+    limiters = []
+
+    if keep_count is not None:
+        if keep_count > 0:
+            limiters.append(CountLimiter(keep_count, f'keep-count <= {keep_count}'))
+        else:
+            rich.print('keep-count must be > 0')
+            raise typer.Exit(1)
 
     keep_size_bytes: int | None = None
     if keep_size is not None:
@@ -88,6 +118,8 @@ def prune_files(
         except humanfriendly.InvalidSize:
             rich.print('keep-size must be a valid size')
             raise typer.Exit(1)
+        else:
+            limiters.append(SizeLimiter(keep_size_bytes, f'keep-size <= {keep_size}'))
 
     if sum(int(bool(x)) for x in [match_regex, match_format]) > 1:
         rich.print('Only one of --match-format or --match-regex can be specified')
@@ -123,20 +155,12 @@ def prune_files(
     files = [x for x in files if x.is_match]
 
     # sort
-    files.sort(key=lambda x: x.orderby, reverse=orderby_reverse)
+    files.sort(key=lambda x: x.orderby, reverse=order_reverse)
 
     # prune
 
-    if keep_count is not None and keep_count > 0:
-        for file in files[:-keep_count]:
-            file.prune_reasons.append(f'keep-count <= {keep_count}')
-
-    if keep_size_bytes is not None:
-        sum_of_size = 0
-        for file in reversed(files):
-            sum_of_size += file.size
-            if sum_of_size > keep_size_bytes:
-                file.prune_reasons.append(f'keep-size <= {keep_size}')
+    for limiter in limiters:
+        limiter.apply(files)
 
     if keep := [x for x in files if not x.prune_reasons]:
         rich.print('[cyan]Keep[/]:')
