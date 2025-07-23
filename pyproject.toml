@@ -10,7 +10,7 @@ homepage = "https://github.com/Cologler/prunefiles-python"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-typer = {extras = ["all"], version = "^0.12.5"}
+typer = "^0.16.0"
 parse = "^1.20.2"
 humanfriendly = "^10.0"
 
