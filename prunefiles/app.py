@@ -15,6 +15,7 @@ import humanfriendly
 import parse
 import rich
 import typer
+from send2trash import send2trash
 
 
 class ParseMatcher:
@@ -112,6 +113,9 @@ def prune_files(
         keep_count: Annotated[int | None, typer.Option(help='The count of files to keep.')] = None,
         keep_size: Annotated[str | None, typer.Option(help='The max size of files to keep.')] = None,
 
+        move_to_trash: Annotated[bool, typer.Option('--move-to-trash',
+            help='move files to trash instead of deleting them.')] = False,
+
         dry_run: Annotated[bool, typer.Option('--dry-run')] = False,
     ):
 
@@ -190,6 +194,8 @@ def prune_files(
             rich.print(f'   ([blue]{file.orderby!r}[/]) [green]{file}[/] by {file.prune_reasons[0]}')
             if dry_run:
                 rich.print('       Skipped by [yellow]--dry-run[/]')
+            elif move_to_trash:
+                send2trash(file.path)
             else:
                 file.delete_file()
 
