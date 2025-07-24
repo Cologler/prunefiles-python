@@ -6,6 +6,7 @@
 # ----------
 
 import re
+import shutil
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any
@@ -41,6 +42,7 @@ class RegexMatcher:
 class _PathState:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.is_file = path.is_file()
         self.orderby: Any = self.path.stem
         self.is_match = True
         self.prune_reasons: list[str] = []
@@ -50,7 +52,16 @@ class _PathState:
 
     @cached_property
     def size(self) -> int:
-        return self.path.stat().st_size
+        if self.is_file:
+            return self.path.stat().st_size
+        else:
+            return sum((p / f).stat().st_size for p, fs, _ in self.path.walk() for f in fs)
+
+    def delete_file(self) -> None:
+        if self.is_file:
+            self.path.unlink()
+        else:
+            shutil.rmtree(self.path)
 
 
 class CountLimiter:
@@ -90,6 +101,10 @@ def prune_files(
             help="match regex, alsosee https://docs.python.org/3/library/re.html#regular-expression-syntax.")] = None,
         match_case_sensitive: Annotated[bool, typer.Option('--match-case-sensitive',
             help='match case sensitive, default is case-insensitive.')] = False,
+        match_folder_only: Annotated[bool, typer.Option('--match-folder-only',
+            help='match folders only, default is files only.')] = False,
+        match_file_and_folder: Annotated[bool, typer.Option('--match-file-and-folder',
+            help='match files and folders.')] = False,
 
         orderby: Annotated[str | None, typer.Option(help='captured from --match-*. leave empty to sort by name.')] = None,
         order_reverse: Annotated[bool, typer.Option('--order-reverse', help='reverse order.')] = False,
@@ -137,44 +152,46 @@ def prune_files(
     rich.print(f"Pruning files in [green]{folder}[/]")
 
     # collect files
-    files: list[_PathState] = [_PathState(path) for path in folder.iterdir() if path.is_file()]
+    fsnodes: list[_PathState] = [_PathState(path) for path in folder.iterdir()]
+    if not match_file_and_folder:
+        fsnodes = [x for x in fsnodes if x.is_file != match_folder_only]
 
     # filter
-    files.sort(key=lambda x: x.path.name)
+    fsnodes.sort(key=lambda x: x.path.name)
 
     if matcher:
-        for file in files:
+        for file in fsnodes:
             if match := matcher.match(file.path.name):
                 if orderby:
                     file.orderby = matcher.get_value(match, orderby)
             file.is_match = bool(match)
 
-    if excluded := [x for x in files if not x.is_match]:
+    if excluded := [x for x in fsnodes if not x.is_match]:
         rich.print('[yellow]Excluded[/]:')
         [rich.print(f'   [green]{x}[/]') for x in excluded]
-    files = [x for x in files if x.is_match]
+    fsnodes = [x for x in fsnodes if x.is_match]
 
     # sort
-    files.sort(key=lambda x: x.orderby, reverse=order_reverse)
+    fsnodes.sort(key=lambda x: x.orderby, reverse=order_reverse)
 
     # prune
 
     for limiter in limiters:
-        limiter.apply(files)
+        limiter.apply(fsnodes)
 
-    if keep := [x for x in files if not x.prune_reasons]:
+    if keep := [x for x in fsnodes if not x.prune_reasons]:
         rich.print('[cyan]Keep[/]:')
         for file in keep:
             rich.print(f'   ([blue]{file.orderby!r}[/]) [green]{file}[/]')
 
-    if remove := [x for x in files if x.prune_reasons]:
+    if remove := [x for x in fsnodes if x.prune_reasons]:
         rich.print('[red]Remove[/]:')
         for file in remove:
             rich.print(f'   ([blue]{file.orderby!r}[/]) [green]{file}[/] by {file.prune_reasons[0]}')
             if dry_run:
                 rich.print('       Skipped by [yellow]--dry-run[/]')
             else:
-                file.path.unlink()
+                file.delete_file()
 
 def main():
     typer.run(prune_files)
