@@ -59,7 +59,7 @@ class CountLimiter:
         self.__max_count = max_count
         self.__reason = reason
 
-    def apply(self, files: list[_PathState]) -> bool:
+    def apply(self, files: list[_PathState]):
         for file in files[:-self.__max_count]:
             file.prune_reasons.append(self.__reason)
 
@@ -70,7 +70,7 @@ class SizeLimiter:
         self.__max_size = max_size # max size in bytes
         self.__reason = reason
 
-    def apply(self, files: list[_PathState]) -> bool:
+    def apply(self, files: list[_PathState]):
         sum_of_size = 0
         for file in reversed(files):
             sum_of_size += file.size
@@ -84,18 +84,18 @@ def prune_files(
             typer.Argument(exists=True, file_okay=False, dir_okay=True, resolve_path=True),
         ],
 
-        match_format: Annotated[str, typer.Option(
+        match_format: Annotated[str | None, typer.Option(
             help="match format, alsosee https://github.com/r1chardj0n3s/parse.")] = None,
-        match_regex: Annotated[str, typer.Option(
+        match_regex: Annotated[str | None, typer.Option(
             help="match regex, alsosee https://docs.python.org/3/library/re.html#regular-expression-syntax.")] = None,
         match_case_sensitive: Annotated[bool, typer.Option('--match-case-sensitive',
             help='match case sensitive, default is case-insensitive.')] = False,
 
-        orderby: Annotated[str, typer.Option(help='captured from --match-*. leave empty to sort by name.')] = None,
+        orderby: Annotated[str | None, typer.Option(help='captured from --match-*. leave empty to sort by name.')] = None,
         order_reverse: Annotated[bool, typer.Option('--order-reverse', help='reverse order.')] = False,
 
-        keep_count: Annotated[int, typer.Option(help='The count of files to keep.')] = None,
-        keep_size: Annotated[str, typer.Option(help='The max size of files to keep.')] = None,
+        keep_count: Annotated[int | None, typer.Option(help='The count of files to keep.')] = None,
+        keep_size: Annotated[str | None, typer.Option(help='The max size of files to keep.')] = None,
 
         dry_run: Annotated[bool, typer.Option('--dry-run')] = False,
     ):
