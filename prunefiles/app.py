@@ -9,7 +9,9 @@ import re
 import shutil
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, override
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 import humanfriendly
 import parse
@@ -17,27 +19,48 @@ import rich
 import typer
 from send2trash import send2trash
 
+@dataclass
+class MatchResult:
+    is_match: bool
+    orderby_value: Any | None = None
 
-class ParseMatcher:
+
+class Matcher(ABC):
+    @abstractmethod
+    def match(self, value: str, orderby_key: str | None) -> MatchResult:
+        raise NotImplementedError
+
+
+class ParseMatcher(Matcher):
     def __init__(self, format: str, case_sensitive: bool) -> None:
         self.__parser = parse.compile(format, case_sensitive=case_sensitive)
 
-    def match(self, value: str) -> parse.Result | None:
-        return self.__parser.parse(value)
+    @override
+    def match(self, value: str, orderby_key: str | None) -> MatchResult:
+        if match_result := self.__parser.parse(value):
+            assert isinstance(match_result, parse.Result)
+            orderby = match_result[orderby_key] if orderby_key is not None else None
+            return MatchResult(is_match=True, orderby_value=orderby)
+        return MatchResult(is_match=False)
 
-    def get_value(self, match_result: parse.Result, name: str) -> Any:
-        return match_result[name]
 
-
-class RegexMatcher:
+class RegexMatcher(Matcher):
     def __init__(self, pattern: str, case_sensitive: bool) -> None:
         self.__pattern = re.compile(pattern, re.IGNORECASE if not case_sensitive else 0)
 
-    def match(self, value: str) -> re.Match | None:
-        return self.__pattern.fullmatch(value)
-
-    def get_value(self, match_result: re.Match, name: str) -> Any:
-        return match_result.group(name)
+    @override
+    def match(self, value: str, orderby_key: str | None) -> MatchResult:
+        if match_result := self.__pattern.fullmatch(value):
+            orderby: str | None = None
+            if orderby_key is not None:
+                try:
+                    orderby = match_result.group(orderby_key)
+                except IndexError:
+                    raise KeyError
+                if orderby is None:
+                    raise KeyError
+            return MatchResult(is_match=True, orderby_value=orderby)
+        return MatchResult(is_match=False)
 
 
 class _PathState:
@@ -56,7 +79,7 @@ class _PathState:
         if self.is_file:
             return self.path.stat().st_size
         else:
-            return sum((p / f).stat().st_size for p, fs, _ in self.path.walk() for f in fs)
+            return sum((p / f).stat().st_size for p, _, fs in self.path.walk() for f in fs)
 
     def delete_file(self) -> None:
         if self.is_file:
@@ -165,10 +188,14 @@ def prune_files(
 
     if matcher:
         for file in fsnodes:
-            if match := matcher.match(file.path.name):
-                if orderby:
-                    file.orderby = matcher.get_value(match, orderby)
-            file.is_match = bool(match)
+            try:
+                match = matcher.match(file.path.name, orderby)
+                if match.is_match and orderby is not None:
+                    file.orderby = match.orderby_value
+                file.is_match = match.is_match
+            except KeyError:
+                rich.print(f'[red]No {orderby!r} captured from {match_format or match_regex!r}[/]')
+                raise typer.Abort()
 
     if excluded := [x for x in fsnodes if not x.is_match]:
         rich.print('[yellow]Excluded[/]:')

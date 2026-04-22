@@ -22,6 +22,15 @@ enable = true
 build-backend = "poetry_dynamic_versioning.backend"
 requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+    "I", # isort
+    "ANN", # flake8-annotations
+]
+
 [tool.poe.tasks]
 test = "python -m pytest --cov=... --cov-report=html"
 lint = "ruff check ."
