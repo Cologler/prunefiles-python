@@ -1,24 +1,28 @@
 [tool.poetry]
-name = "prunefiles"
-version = "0.1.0"
-description = ""
 authors = ["Cologler <skyoflw@gmail.com>"]
-license = "MIT"
-readme = "README.md"
-scripts = { prunefiles = "prunefiles.app:main" }
+description = ""
 homepage = "https://github.com/Cologler/prunefiles-python"
+license = "MIT"
+name = "prunefiles"
+readme = "README.md"
+scripts = {prunefiles = "prunefiles.app:main"}
+version = "0.1.0"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-typer = "^0.16.0"
-parse = "^1.20.2"
 humanfriendly = "^10.0"
+parse = "^1.20.2"
+python = "^3.12"
 send2trash = "^1.8.3"
-
-
+typer = "^0.16.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
+
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
 build-backend = "poetry_dynamic_versioning.backend"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+
+[tool.poe.tasks]
+test = "python -m pytest --cov=... --cov-report=html"
+lint = "ruff check ."
+lint-fix = "ruff check . --fix"
