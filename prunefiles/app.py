@@ -90,18 +90,23 @@ class _PathState:
 
 class CountLimiter:
     def __init__(self, max_count: int, reason: str) -> None:
-        assert max_count > 0
+        if max_count < 0:
+            raise ValueError('max_count must be >= 0')
         self.__max_count = max_count
         self.__reason = reason
 
     def apply(self, files: list[_PathState]):
-        for file in files[:-self.__max_count]:
+        # files is already sorted,
+        # so we can just keep the last max_count files.
+        files_to_prune = files[:-self.__max_count] if self.__max_count > 0 else files
+        for file in files_to_prune:
             file.prune_reasons.append(self.__reason)
 
 
 class SizeLimiter:
     def __init__(self, max_size: int, reason: str) -> None:
-        assert max_size >= 0
+        if max_size < 0:
+            raise ValueError('max_size must be >= 0')
         self.__max_size = max_size # max size in bytes
         self.__reason = reason
 
@@ -147,10 +152,10 @@ def prune_files(
     limiters = []
 
     if keep_count is not None:
-        if keep_count > 0:
+        if keep_count >= 0:
             limiters.append(CountLimiter(keep_count, f'keep-count <= {keep_count}'))
         else:
-            rich.print('keep-count must be > 0')
+            rich.print('keep-count must be >= 0')
             raise typer.Exit(1)
 
     keep_size_bytes: int | None = None
